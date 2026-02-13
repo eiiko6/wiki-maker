@@ -1,0 +1,11 @@
+title = "Voidmother"
+image = "voidmother.png"
+content_file = "voidmother.md"
+
+[infobox]
+"Espèce" = "Primordial Papoute"
+"Genre" = "Beyond gender"
+"Rôle cosmique" = "Origin of all papoutes"
+"Tempérament" = "Indescribable horror"
+"Présence" = "Between dimensions"
+

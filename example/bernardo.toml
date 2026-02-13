@@ -1,0 +1,9 @@
+title = "Bernardo"
+image = "bernardo.png"
+content_file = "bernardo.md"
+
+[infobox]
+"Espèce" = "Papoute Commun"
+Genre = "H"
+"Lieu d'habitation" = "Inside your walls"
+"Créateur" = "Papoute god?"

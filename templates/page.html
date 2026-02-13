@@ -1,43 +1,66 @@
 {% extends "_base.html" %}
 {% block title %}{{ title }}{% endblock title %}
 {% block content %}
-    <article>
-        {{ content | safe }}
-    </article>
+<div class="wiki-header">
+    <h1>{{ title }}</h1>
+</div>
 
-    <script>
-    document.querySelectorAll('pre[data-code]').forEach((block) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'code-wrapper';
+<div class="wiki-container">
+    <main class="wiki-body">
+        <article>
+            {{ content | safe }}
+        </article>
+    </main>
 
-        block.parentNode.insertBefore(wrapper, block);
+    <aside class="wiki-sidebar">
+        {% if main_image %}
+        <div class="sidebar-image">
+            <img src="{% if is_static %}{{ main_image }}{% else %}/assets/{{ main_image }}{% endif %}" alt="{{ title }}">
+        </div>
+        {% endif %}
 
-        wrapper.appendChild(block);
+        {% if infobox %}
+        <div class="infobox-data">
+            <table>
+                <tbody>
+                {% for item in infobox %}
+                    <tr>
+                        <td class="info-label">{{ item.key }}</td>
+                        <td class="info-value">{{ item.value }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </aside>
+</div>
 
-        const button = document.createElement('button');
-        button.className = 'copy-button';
-        button.type = 'button';
-        button.innerHTML = '<i class="fa-regular fa-copy"></i>';
+<script>
+document.querySelectorAll('pre[data-code]').forEach((block) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'code-wrapper';
+    block.parentNode.insertBefore(wrapper, block);
+    wrapper.appendChild(block);
 
-        wrapper.appendChild(button);
+    const button = document.createElement('button');
+    button.className = 'copy-button';
+    button.type = 'button';
+    button.innerHTML = '<i class="fa-regular fa-copy"></i>';
+    wrapper.appendChild(button);
 
-        button.addEventListener('click', async () => {
-            const text = block.getAttribute('data-code');
-
-            try {
-                await navigator.clipboard.writeText(text);
-
-                button.innerHTML = '<i class="fa-solid fa-check"></i>';
-                button.classList.add('copied');
-
-                setTimeout(() => {
-                    button.innerHTML = '<i class="fa-regular fa-copy"></i>';
-                    button.classList.remove('copied');
-                }, 2000);
-            } catch (err) {
-                console.error('Copy failed', err);
-            }
-        });
+    button.addEventListener('click', async () => {
+        const text = block.getAttribute('data-code');
+        try {
+            await navigator.clipboard.writeText(text);
+            button.innerHTML = '<i class="fa-solid fa-check"></i>';
+            button.classList.add('copied');
+            setTimeout(() => {
+                button.innerHTML = '<i class="fa-regular fa-copy"></i>';
+                button.classList.remove('copied');
+            }, 2000);
+        } catch (err) { console.error('Copy failed', err); }
     });
-    </script>
+});
+</script>
 {% endblock content %}

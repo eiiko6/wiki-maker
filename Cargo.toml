@@ -1,5 +1,5 @@
 [package]
-name = "blog"
+name = "wiki-maker"
 version = "0.1.0"
 edition = "2024"
 
@@ -15,9 +15,11 @@ serde = { version = "1.0.228", features = ["derive"] }
 syntect = "5.3.0"
 tera = "1.20.1"
 tokio = { version = "1.49.0", features = ["full"] }
-tower-http = { version = "0.6.8", features = ["cors"] }
+tower-http = { version = "0.6.8", features = ["cors", "fs"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.22"
+toml = "0.8.19"
+indexmap = { version = "2.7.1", features = ["serde"] }
 
 [build-dependencies]
 reqwest = { version = "0.13.1", features = ["blocking"] }

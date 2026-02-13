@@ -1,5 +1,5 @@
 {
-  description = "Blog website";
+  description = "Wiki maker";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -12,8 +12,16 @@
     };
   };
 
-  outputs = { nixpkgs, flake-utils, rust-overlay, code-theme, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      nixpkgs,
+      flake-utils,
+      rust-overlay,
+      code-theme,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         overlays = [ rust-overlay.overlays.default ];
         pkgs = import nixpkgs {
@@ -24,7 +32,7 @@
       in
       {
         packages.default = pkgs.rustPlatform.buildRustPackage {
-          pname = "blog";
+          pname = "wiki-maker";
           version = "0.1.0";
 
           src = ./.;
@@ -60,5 +68,6 @@
           OPENSSL_DIR = openssl.dev;
           PKG_CONFIG_PATH = "${openssl.dev}/lib/pkgconfig";
         };
-      });
+      }
+    );
 }

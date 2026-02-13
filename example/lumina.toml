@@ -1,0 +1,11 @@
+title = "Lumina the Warm One"
+image = "lumina.png"
+content_file = "lumina.md"
+
+[infobox]
+"Espèce" = "Radiant Papoute"
+"Genre" = "F"
+"Domain" = "Comfort & heat"
+"Children" = "Bernardo"
+"Mother" = "Voidmother"
+
