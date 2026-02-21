@@ -1,21 +1,27 @@
-use ax_models::{Page, WikiConfig};
 use axum::{
     Router,
-    extract::{Path, State},
     http::StatusCode,
-    response::{Html, IntoResponse, Response},
+    response::{IntoResponse, Response},
     routing::get,
 };
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use lazy_static::lazy_static;
-use pulldown_cmark::{Options, Parser as MarkdownParser, html};
 use std::sync::Arc;
 use std::{io::Cursor, path::PathBuf};
 use syntect::{highlighting::ThemeSet, parsing::SyntaxSet};
 use tera::{Context, Tera};
 
+mod analysis;
+mod cli;
 mod codeblocks;
-use codeblocks::*;
+mod rendering;
+
+use crate::{
+    cli::{Cli, Commands},
+    rendering::{render_page_handler, render_summary_handler, render_wiki_page},
+};
+use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
@@ -46,33 +52,19 @@ lazy_static! {
     };
 }
 
-#[derive(Parser)]
-#[command(author, version, about = "A simple wiki server/builder")]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct Page {
+    pub filename: String,
+    pub title: String,
+    pub datetime: String,
 }
 
-#[derive(Subcommand)]
-enum Commands {
-    Serve {
-        #[arg(short, long)]
-        path: PathBuf,
-        #[arg(short, long)]
-        no_navigation: bool,
-        #[arg(short = 'P', long, default_value = "8090")]
-        port: u16,
-        #[arg(short = 'H', long)]
-        host: bool,
-    },
-    Build {
-        #[arg(short, long)]
-        path: PathBuf,
-        #[arg(short, long)]
-        no_navigation: bool,
-        #[arg(short, long)]
-        out_dir: Option<PathBuf>,
-    },
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct WikiConfig {
+    pub title: String,
+    pub image: Option<String>,
+    pub infobox: Option<IndexMap<String, String>>,
+    pub content_file: Option<String>,
 }
 
 struct AppState {
@@ -105,7 +97,6 @@ async fn main() -> anyhow::Result<()> {
                 .route("/", get(render_summary_handler))
                 .route("/{page}", get(render_page_handler))
                 .route("/style.css", get(serve_css))
-                // Serve images relative to the docs directory
                 .nest_service(
                     "/assets",
                     tower_http::services::ServeDir::new(&shared_state.docs_dir),
@@ -131,6 +122,16 @@ async fn main() -> anyhow::Result<()> {
             tokio::fs::create_dir_all(&output_path).await?;
             run_build(abs_path, output_path, no_navigation).await?;
         }
+        Commands::Graph { path } => {
+            let abs_path = std::fs::canonicalize(&path)?;
+            let graph = analysis::WikiGraph::new(abs_path).await?;
+            graph.print_dot();
+        }
+        Commands::Todo { path } => {
+            let abs_path = std::fs::canonicalize(&path)?;
+            let graph = analysis::WikiGraph::new(abs_path).await?;
+            graph.check_dead_links();
+        }
     }
     Ok(())
 }
@@ -140,7 +141,6 @@ async fn get_summary_data(docs_dir: &PathBuf) -> Vec<Page> {
     if let Ok(mut entries) = tokio::fs::read_dir(docs_dir).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
             let path = entry.path();
-            // We now look for TOML files as the entry points
             if path.extension().and_then(|s| s.to_str()) != Some("toml") {
                 continue;
             }
@@ -148,7 +148,6 @@ async fn get_summary_data(docs_dir: &PathBuf) -> Vec<Page> {
             let filename = entry.file_name();
             let filename_str = filename.to_str().unwrap_or("");
 
-            // Read TOML to get the title
             let title = if let Ok(content) = tokio::fs::read_to_string(&path).await {
                 if let Ok(config) = toml::from_str::<WikiConfig>(&content) {
                     config.title
@@ -159,13 +158,10 @@ async fn get_summary_data(docs_dir: &PathBuf) -> Vec<Page> {
                 filename_str.to_string()
             };
 
-            // TODO:
-            let datetime = "".to_string();
-
             pages.push(Page {
-                filename: filename_str.to_string(), // Keep .toml extension here for now
+                filename: filename_str.to_string(),
                 title,
-                datetime,
+                datetime: "".to_string(),
             });
         }
     }
@@ -173,89 +169,9 @@ async fn get_summary_data(docs_dir: &PathBuf) -> Vec<Page> {
     pages
 }
 
-async fn render_wiki_page(
-    filename: &str,
-    docs_dir: &PathBuf,
-    no_navigation: bool,
-    is_static: bool,
-) -> Result<String, String> {
-    let toml_path = docs_dir.join(filename);
-    let toml_content = tokio::fs::read_to_string(&toml_path)
-        .await
-        .map_err(|_| "Page configuration not found".to_string())?;
-
-    let config: WikiConfig =
-        toml::from_str(&toml_content).map_err(|e| format!("Invalid TOML configuration: {}", e))?;
-
-    let markdown_content = if let Some(md_file) = &config.content_file {
-        let md_path = docs_dir.join(md_file);
-        tokio::fs::read_to_string(&md_path)
-            .await
-            .unwrap_or_else(|_| {
-                "# Content missing\nThe linked markdown file could not be found.".to_string()
-            })
-    } else {
-        String::new()
-    };
-
-    // Render Markdown
-    let mut options = Options::empty();
-    options.insert(
-        Options::ENABLE_TABLES
-            | Options::ENABLE_FOOTNOTES
-            | Options::ENABLE_STRIKETHROUGH
-            | Options::ENABLE_TASKLISTS,
-    );
-
-    let parser = MarkdownParser::new_ext(&markdown_content, options);
-    let renderer = CodeblockRenderer::new(parser);
-    let mut html_output = String::new();
-    html::push_html(&mut html_output, renderer);
-
-    let (mut prev, mut next) = if no_navigation {
-        (None, None)
-    } else {
-        get_nav_links(docs_dir, filename)
-    };
-
-    if is_static {
-        prev = prev.map(|s| {
-            if s == "." {
-                "index.html".to_string()
-            } else {
-                s.replace(".toml", ".html")
-            }
-        });
-        next = next.map(|s| s.replace(".toml", ".html"));
-    }
-
-    let infobox_list: Vec<InfoboxItem> = match config.infobox {
-        Some(map) => map
-            .into_iter()
-            .map(|(k, v)| InfoboxItem { key: k, value: v })
-            .collect(),
-        None => Vec::new(),
-    };
-
-    let mut context = Context::new();
-    context.insert("title", &config.title);
-    context.insert("content", &html_output);
-    context.insert("infobox", &infobox_list); // Pass the ordered list, not the map
-    context.insert("main_image", &config.image);
-    context.insert("prev_page", &prev);
-    context.insert("next_page", &next);
-    context.insert("no_navigation", &no_navigation);
-    context.insert("is_static", &is_static);
-
-    TEMPLATES
-        .render("page.html", &context)
-        .map_err(|e| format!("Template Error: {}", e))
-}
-
 async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> anyhow::Result<()> {
     tracing::info!("Building static site to: {:?}", out_dir);
 
-    // Build summary
     if !no_navigation {
         let pages = get_summary_data(&docs_dir).await;
         let static_pages: Vec<Page> = pages
@@ -275,13 +191,9 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
         tokio::fs::write(out_dir.join("index.html"), rendered).await?;
     }
 
-    // Build css
     let css = TEMPLATES.render("style.css", &Context::new())?;
     tokio::fs::write(out_dir.join("style.css"), css).await?;
 
-    // Copy assets (images, etc)
-    // NOTE: In a real app you'd recursively copy everything not .md/.toml
-    // For now we just copy files that look like images if they are in root
     let mut entries = tokio::fs::read_dir(&docs_dir).await?;
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
@@ -293,7 +205,6 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
         }
     }
 
-    // Build pages
     let mut entries = tokio::fs::read_dir(&docs_dir).await?;
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
@@ -315,38 +226,6 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
     Ok(())
 }
 
-async fn render_summary_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if state.no_navigation {
-        return (StatusCode::NOT_FOUND, "Disabled").into_response();
-    }
-    let pages = get_summary_data(&state.docs_dir).await;
-    let mut context = Context::new();
-    context.insert("title", "Wiki Index");
-    context.insert("files", &pages);
-    context.insert("is_static", &false);
-
-    match TEMPLATES.render("home.html", &context) {
-        Ok(rendered) => Html(rendered).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-    }
-}
-
-async fn render_page_handler(
-    State(state): State<Arc<AppState>>,
-    Path(page): Path<String>,
-) -> impl IntoResponse {
-    let filename = if page.ends_with(".toml") {
-        page
-    } else {
-        format!("{}.toml", page)
-    };
-
-    match render_wiki_page(&filename, &state.docs_dir, state.no_navigation, false).await {
-        Ok(html) => Html(html).into_response(),
-        Err(e) => (StatusCode::NOT_FOUND, format!("<h1>404</h1><p>{}</p>", e)).into_response(),
-    }
-}
-
 async fn serve_css() -> impl IntoResponse {
     match TEMPLATES.render("style.css", &Context::new()) {
         Ok(css) => Response::builder()
@@ -355,34 +234,6 @@ async fn serve_css() -> impl IntoResponse {
             .unwrap(),
         Err(_) => (StatusCode::NOT_FOUND, "CSS not found").into_response(),
     }
-}
-
-mod ax_models {
-    use indexmap::IndexMap;
-    use serde::{Deserialize, Serialize}; // Use IndexMap instead of BTreeMap
-
-    #[derive(Deserialize, Serialize, Clone)]
-    pub struct Page {
-        pub filename: String,
-        pub title: String,
-        pub datetime: String,
-    }
-
-    #[derive(Deserialize, Serialize, Clone)]
-    pub struct WikiConfig {
-        pub title: String,
-        pub image: Option<String>,
-        // IndexMap preserves the order from the file
-        pub infobox: Option<IndexMap<String, String>>,
-        pub content_file: Option<String>,
-    }
-}
-
-// Helper struct for the template
-#[derive(serde::Serialize)]
-struct InfoboxItem {
-    key: String,
-    value: String,
 }
 
 fn get_nav_links(dir: &PathBuf, current_file: &str) -> (Option<String>, Option<String>) {
