@@ -32,7 +32,11 @@ pub enum Commands {
     /// Output a DOT graph of the wiki connections
     Graph {},
     /// List broken links
-    Todo {},
+    Todo {
+        /// Invert the display: "Sources -> Target" instead of "Target <- Sources"
+        #[arg(short, long)]
+        reverse: bool,
+    },
     /// Manage wiki entries
     Entry {
         #[command(subcommand)]

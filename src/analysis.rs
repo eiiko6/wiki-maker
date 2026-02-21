@@ -90,20 +90,57 @@ impl WikiGraph {
         println!("}}");
     }
 
-    pub fn check_dead_links(&self) {
-        let mut found_issues = false;
+    pub fn check_dead_links(&self, reverse: bool) {
+        let mut missing_targets: HashMap<&String, Vec<&String>> = HashMap::new();
 
         for (source, targets) in &self.edges {
             for target in targets {
                 if !self.nodes.contains_key(target) {
-                    println!("{} -> ❌ {}", source.bold().cyan(), target.red());
-                    found_issues = true;
+                    missing_targets.entry(target).or_default().push(source);
                 }
             }
         }
 
-        if !found_issues {
+        if missing_targets.is_empty() {
             println!("{}", "✅ No broken links found!".green().bold());
+            return;
+        }
+
+        let mut sorted_missing: Vec<_> = missing_targets.into_iter().collect();
+        sorted_missing.sort_by(|a, b| b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(b.0)));
+
+        for (target, sources) in &sorted_missing {
+            let count = sources.len();
+            let sources_list = sources
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<&str>>()
+                .join(", ")
+                .dimmed();
+
+            let target_styled = format!("❌ {}", target).red().bold();
+
+            if reverse {
+                println!("{} ({}) -> {}", sources_list, count, target_styled);
+            } else {
+                println!("{} ({}) <- {}", target_styled, count, sources_list);
+            }
+        }
+
+        // Hint
+        println!();
+        if let Some((top_target, sources)) = sorted_missing.first() {
+            let count = sources.len();
+            println!(
+                "{}",
+                format!(
+                    "Hint: Start working on '{}' as it has {} link{} pointing to it.",
+                    top_target.red().bold(),
+                    count,
+                    if count > 1 { "s" } else { "" }
+                )
+                .italic()
+            );
         }
     }
 }

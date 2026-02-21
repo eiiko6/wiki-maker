@@ -126,9 +126,9 @@ async fn main() -> anyhow::Result<()> {
             let graph = analysis::WikiGraph::new(abs_path).await?;
             graph.print_dot();
         }
-        Commands::Todo {} => {
+        Commands::Todo { reverse } => {
             let graph = analysis::WikiGraph::new(abs_path).await?;
-            graph.check_dead_links();
+            graph.check_dead_links(reverse);
         }
         Commands::Entry { cmd } => {
             entry::handle(cmd, abs_path).await?;
