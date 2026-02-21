@@ -20,6 +20,7 @@ tracing = "0.1.44"
 tracing-subscriber = "0.3.22"
 toml = "0.8.19"
 indexmap = { version = "2.7.1", features = ["serde"] }
+colored = "3.1.1"
 
 [build-dependencies]
 reqwest = { version = "0.13.1", features = ["blocking"] }

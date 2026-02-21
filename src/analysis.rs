@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use colored::*;
 use pulldown_cmark::{Event, Parser, Tag};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -95,14 +96,14 @@ impl WikiGraph {
         for (source, targets) in &self.edges {
             for target in targets {
                 if !self.nodes.contains_key(target) {
-                    println!("\x1b[1m{}\x1b[0m -> ❌ \x1b[31m{}\x1b[0m", source, target);
+                    println!("{} -> ❌ {}", source.bold().cyan(), target.red());
                     found_issues = true;
                 }
             }
         }
 
         if !found_issues {
-            println!("✅ No broken links found!");
+            println!("{}", "✅ No broken links found!".green().bold());
         }
     }
 }

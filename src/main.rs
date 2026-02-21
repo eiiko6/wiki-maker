@@ -14,6 +14,7 @@ use tera::{Context, Tera};
 mod analysis;
 mod cli;
 mod codeblocks;
+mod entry;
 mod rendering;
 
 use crate::{
@@ -81,14 +82,15 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
+    // Resolve the global path argument once
+    let abs_path = std::fs::canonicalize(&cli.path)?;
+
     match cli.command {
         Commands::Serve {
-            path,
             port,
             host,
             no_navigation,
         } => {
-            let abs_path = std::fs::canonicalize(&path)?;
             let shared_state = Arc::new(AppState {
                 docs_dir: abs_path,
                 no_navigation,
@@ -113,24 +115,23 @@ async fn main() -> anyhow::Result<()> {
             axum::serve(listener, app).await?;
         }
         Commands::Build {
-            path,
             no_navigation,
             out_dir,
         } => {
-            let abs_path = std::fs::canonicalize(&path)?;
             let output_path = out_dir.unwrap_or_else(|| abs_path.clone());
             tokio::fs::create_dir_all(&output_path).await?;
             run_build(abs_path, output_path, no_navigation).await?;
         }
-        Commands::Graph { path } => {
-            let abs_path = std::fs::canonicalize(&path)?;
+        Commands::Graph {} => {
             let graph = analysis::WikiGraph::new(abs_path).await?;
             graph.print_dot();
         }
-        Commands::Todo { path } => {
-            let abs_path = std::fs::canonicalize(&path)?;
+        Commands::Todo {} => {
             let graph = analysis::WikiGraph::new(abs_path).await?;
             graph.check_dead_links();
+        }
+        Commands::Entry { cmd } => {
+            entry::handle(cmd, abs_path).await?;
         }
     }
     Ok(())
