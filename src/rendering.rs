@@ -24,7 +24,19 @@ pub async fn render_wiki_page(
     no_navigation: bool,
     is_static: bool,
 ) -> Result<String, String> {
-    let toml_path = docs_dir.join(filename);
+    let toml_path = docs_dir
+        .join(filename)
+        .canonicalize()
+        .map_err(|_| "Not found")?;
+
+    let canonical_root = docs_dir
+        .canonicalize()
+        .map_err(|_| "Server Error: Invalid Root")?;
+
+    if !toml_path.starts_with(&canonical_root) {
+        return Err("Access Denied".to_string());
+    }
+
     let toml_content = tokio::fs::read_to_string(&toml_path)
         .await
         .map_err(|_| "Page configuration not found".to_string())?;

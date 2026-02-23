@@ -15,7 +15,7 @@
     <aside class="wiki-sidebar">
         {% if main_image %}
         <div class="sidebar-image">
-            <img src="{% if is_static %}{{ main_image }}{% else %}/assets/{{ main_image }}{% endif %}" alt="{{ title }}">
+            <img src="{% if is_static %}{{ main_image }}{% else %}assets/{{ main_image }}{% endif %}" alt="{{ title }}">
         </div>
         {% endif %}
 
