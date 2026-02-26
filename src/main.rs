@@ -115,6 +115,9 @@ async fn main() -> anyhow::Result<()> {
             };
             let listener = tokio::net::TcpListener::bind(&addr).await?;
             tracing::info!("Listening on http://{}", addr);
+            if no_navigation {
+                tracing::warn!("no_navigation is enabled: there will be no index at the root")
+            }
             axum::serve(listener, app).await?;
         }
         Commands::Build {

@@ -15,10 +15,13 @@ pub struct Cli {
 pub enum Commands {
     /// Serve the wiki locally
     Serve {
+        /// Disable the navigation page
         #[arg(short, long)]
         no_navigation: bool,
+        /// Network port to use
         #[arg(short = 'P', long, default_value = "8090")]
         port: u16,
+        /// Whether to use 0.0.0.0 to serve on the network
         #[arg(short = 'H', long)]
         host: bool,
     },
