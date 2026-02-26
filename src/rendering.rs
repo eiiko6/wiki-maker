@@ -3,14 +3,77 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse},
 };
-use pulldown_cmark::{Options, Parser as MarkdownParser, html};
+use pulldown_cmark::{
+    CodeBlockKind, CowStr, Event, Options, Parser as MarkdownParser, Tag, TagEnd, html,
+};
+use pulldown_cmark_escape::escape_html;
 use std::path::PathBuf;
 use std::sync::Arc;
+use syntect::html::highlighted_html_for_string;
 use tera::Context;
 
 use crate::{
-    AppState, TEMPLATES, WikiConfig, codeblocks::CodeblockRenderer, get_nav_links, get_summary_data,
+    AppState, SYNTAX_SET, TEMPLATES, THEME_SET, WikiConfig, get_nav_links, get_summary_data,
 };
+
+pub struct Renderer<'a> {
+    inner: MarkdownParser<'a>,
+}
+
+impl<'a> Renderer<'a> {
+    pub fn new(inner: MarkdownParser<'a>) -> Self {
+        Self { inner }
+    }
+}
+
+impl<'a> Iterator for Renderer<'a> {
+    type Item = Event<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let event = self.inner.next()?;
+
+        // Intercept CodeBlock starts
+        let Event::Start(Tag::CodeBlock(kind)) = event else {
+            return Some(event);
+        };
+
+        let mut code_content = String::new();
+
+        while let Some(inner_event) = self.inner.next() {
+            match inner_event {
+                Event::End(TagEnd::CodeBlock) => break,
+                Event::Text(code) => code_content.push_str(&code),
+                _ => {}
+            }
+        }
+
+        let lang = match kind {
+            CodeBlockKind::Indented => "text",
+            CodeBlockKind::Fenced(ref language) => language.as_ref(),
+        };
+
+        let rendered_html = render_code_to_html(&code_content, lang);
+
+        let mut escaped_code = String::new();
+        let _ = escape_html(&mut escaped_code, &code_content);
+
+        let rendered_html =
+            rendered_html.replace("<pre", &format!("<pre data-code=\"{}\"", escaped_code));
+
+        Some(Event::Html(CowStr::Boxed(rendered_html.into_boxed_str())))
+    }
+}
+
+pub fn render_code_to_html(code: &str, lang: &str) -> String {
+    let syntax = SYNTAX_SET
+        .find_syntax_by_token(lang)
+        .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text());
+
+    let theme = &THEME_SET.themes["Catppuccin Macchiato"];
+
+    highlighted_html_for_string(code, &SYNTAX_SET, syntax, theme)
+        .unwrap_or_else(|_| format!("<pre><code>{}</code></pre>", code))
+}
 
 #[derive(serde::Serialize)]
 struct InfoboxItem {
@@ -64,7 +127,7 @@ pub async fn render_wiki_page(
     );
 
     let parser = MarkdownParser::new_ext(&markdown_content, options);
-    let renderer = CodeblockRenderer::new(parser);
+    let renderer = Renderer::new(parser);
     let mut html_output = String::new();
     html::push_html(&mut html_output, renderer);
 
@@ -93,11 +156,13 @@ pub async fn render_wiki_page(
         None => Vec::new(),
     };
 
+    let main_image_path = config.image.as_ref().map(|img| format!("images/{}", img));
+
     let mut context = Context::new();
     context.insert("title", &config.title);
     context.insert("content", &html_output);
     context.insert("infobox", &infobox_list);
-    context.insert("main_image", &config.image);
+    context.insert("main_image", &main_image_path);
     context.insert("prev_page", &prev);
     context.insert("next_page", &next);
     context.insert("no_navigation", &no_navigation);

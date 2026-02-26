@@ -13,7 +13,6 @@ use tera::{Context, Tera};
 
 mod analysis;
 mod cli;
-mod codeblocks;
 mod entry;
 mod rendering;
 
@@ -100,6 +99,10 @@ async fn main() -> anyhow::Result<()> {
                 .route("/{page}", get(render_page_handler))
                 .route("/style.css", get(serve_css))
                 .nest_service(
+                    "/images",
+                    tower_http::services::ServeDir::new(&shared_state.docs_dir.join("images")),
+                )
+                .nest_service(
                     "/assets",
                     tower_http::services::ServeDir::new(&shared_state.docs_dir),
                 )
@@ -118,7 +121,7 @@ async fn main() -> anyhow::Result<()> {
             no_navigation,
             out_dir,
         } => {
-            let output_path = out_dir.unwrap_or_else(|| abs_path.clone());
+            let output_path = out_dir;
             tokio::fs::create_dir_all(&output_path).await?;
             run_build(abs_path, output_path, no_navigation).await?;
         }
@@ -201,6 +204,22 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
         if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
             if ["png", "jpg", "jpeg", "gif", "webp"].contains(&ext) {
                 let dest = out_dir.join(path.file_name().unwrap());
+                tokio::fs::copy(path, dest).await?;
+            }
+        }
+    }
+
+    let out_images = out_dir.join("images");
+    tokio::fs::create_dir_all(&out_images).await?;
+
+    let src_images = docs_dir.join("images");
+    if src_images.exists() {
+        let mut entries = tokio::fs::read_dir(&src_images).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            tracing::info!("Copied {}", entry.file_name().display(),);
+            let path = entry.path();
+            if path.is_file() {
+                let dest = out_images.join(path.file_name().unwrap());
                 tokio::fs::copy(path, dest).await?;
             }
         }

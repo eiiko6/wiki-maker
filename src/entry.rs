@@ -58,10 +58,11 @@ async fn list_entries(root: &PathBuf) -> Result<()> {
 fn check_file_status(root: &PathBuf, filename: Option<String>) -> String {
     match filename {
         Some(f) => {
-            if root.join(&f).exists() {
+            let path = root.join("images").join(&f);
+            if path.exists() {
                 f.green().to_string()
             } else {
-                format!("{} (Missing)", f.red())
+                format!("{} (Missing in images/)", f.red())
             }
         }
         None => "None".to_string(),
@@ -87,6 +88,9 @@ async fn create_entry(root: &PathBuf, title: &str) -> Result<()> {
 
     let toml_path = root.join(&toml_filename);
     let md_path = root.join(&md_filename);
+
+    let images_dir = root.join("images");
+    fs::create_dir_all(&images_dir).await?;
 
     if toml_path.exists() {
         return Err(anyhow!("Entry '{}' already exists", slug));
@@ -119,7 +123,7 @@ content_file = "{}"
     println!("Created entry '{}'", title);
     println!("  - TOML: {:?}", toml_path);
     println!("  - Markdown: {:?}", md_path);
-    println!("  - (Expected image: {:?})", img_filename);
+    println!("  - (Expected image: {:?})", images_dir.join(img_filename));
 
     Ok(())
 }
@@ -151,7 +155,7 @@ async fn remove_entry(root: &PathBuf, name: &str) -> Result<()> {
         let p = root.join(&img_file);
         if p.exists() {
             fs::remove_file(&p).await?;
-            println!("Removed: {}", img_file);
+            println!("Removed: images/{}", img_file);
         }
     }
 

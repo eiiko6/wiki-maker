@@ -26,8 +26,8 @@ pub enum Commands {
     Build {
         #[arg(short, long)]
         no_navigation: bool,
-        #[arg(short, long)]
-        out_dir: Option<PathBuf>,
+        #[arg(short, long, default_value = "dist")]
+        out_dir: PathBuf,
     },
     /// Output a DOT graph of the wiki connections
     Graph {},
