@@ -16,6 +16,21 @@
 
     <hr />
 
+    <h2>Recent Changes</h2>
+    {% if changelog | length > 0 %}
+    <p><a href="{% if is_static %}changelog.html{% else %}changelog{% endif %}">View full changelog</a></p>
+    <ul>
+        {% for entry in changelog | slice(end=5) %}
+        <li>
+            <code style="color: var(--accent)">{{ entry.date | truncate(length=10, end="") }}</code> 
+            {{ entry.message }}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No recent changes recorded.</p>
+    {% endif %}
+
    <script>
     document.addEventListener("DOMContentLoaded", function() {
       const dateElements = document.querySelectorAll('.local-date');

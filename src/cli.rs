@@ -45,6 +45,11 @@ pub enum Commands {
         #[command(subcommand)]
         cmd: EntryCommands,
     },
+    /// Manage the changelog
+    Changelog {
+        #[command(subcommand)]
+        cmd: ChangelogCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -65,5 +70,18 @@ pub enum EntryCommands {
     Inspect {
         /// The normalized name of the toml file (e.g. "the-great-bernardo")
         name: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ChangelogCommands {
+    /// View the current changelog
+    View,
+    /// Generate or update the changelog from git history
+    GenFromGit {
+        /// Path to the directory containing `.git/` (defaults to current dir or wiki dir).
+        /// Note that git will look in parent directories until it finds a `.git/`
+        #[arg(long)]
+        git_path: Option<PathBuf>,
     },
 }

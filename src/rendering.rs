@@ -13,7 +13,8 @@ use syntect::html::highlighted_html_for_string;
 use tera::Context;
 
 use crate::{
-    AppState, SYNTAX_SET, TEMPLATES, THEME_SET, WikiConfig, get_nav_links, get_summary_data,
+    AppState, SYNTAX_SET, TEMPLATES, THEME_SET, WikiConfig, changelog, get_nav_links,
+    get_summary_data,
 };
 
 pub struct Renderer<'a> {
@@ -202,10 +203,14 @@ pub async fn render_summary_handler(State(state): State<Arc<AppState>>) -> impl 
     if state.no_navigation {
         return (StatusCode::NOT_FOUND, "Disabled").into_response();
     }
+
     let pages = get_summary_data(&state.docs_dir, false).await;
+    let changelog_entries = changelog::load_changelog(&state.docs_dir).await;
+
     let mut context = Context::new();
     context.insert("title", "Wiki Index");
     context.insert("files", &pages);
+    context.insert("changelog", &changelog_entries);
     context.insert("is_static", &false);
 
     match TEMPLATES.render("home.html", &context) {
@@ -227,5 +232,24 @@ pub async fn render_page_handler(
     match render_wiki_page(&filename, &state.docs_dir, state.no_navigation, false).await {
         Ok(html) => Html(html).into_response(),
         Err(e) => (StatusCode::NOT_FOUND, format!("<h1>404</h1><p>{}</p>", e)).into_response(),
+    }
+}
+
+pub async fn render_changelog_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    if state.no_navigation {
+        return (StatusCode::NOT_FOUND, "Disabled").into_response();
+    }
+
+    let changelog_entries = changelog::load_changelog(&state.docs_dir).await;
+
+    let mut context = Context::new();
+    context.insert("title", "Changelog");
+    context.insert("changelog", &changelog_entries);
+    context.insert("is_static", &false);
+    context.insert("no_navigation", &false);
+
+    match TEMPLATES.render("changelog.html", &context) {
+        Ok(rendered) => Html(rendered).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }

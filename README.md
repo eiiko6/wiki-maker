@@ -45,3 +45,8 @@ Or you can generate a static build with:
 ```sh
 wiki-maker --path ./example/ build -o ./dist/
 ```
+
+You can generate and update a changelog page based on git history with:
+```sh
+wiki-maker --path ./example/ changelog gen-from-git
+```

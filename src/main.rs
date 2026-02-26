@@ -12,13 +12,16 @@ use syntect::{highlighting::ThemeSet, parsing::SyntaxSet};
 use tera::{Context, Tera};
 
 mod analysis;
+mod changelog;
 mod cli;
 mod entry;
 mod rendering;
 
 use crate::{
     cli::{Cli, Commands},
-    rendering::{render_page_handler, render_summary_handler, render_wiki_page},
+    rendering::{
+        render_changelog_handler, render_page_handler, render_summary_handler, render_wiki_page,
+    },
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -31,6 +34,10 @@ lazy_static! {
             ("home.html", include_str!("../templates/home.html")),
             ("page.html", include_str!("../templates/page.html")),
             ("style.css", include_str!("../templates/style.css")),
+            (
+                "changelog.html",
+                include_str!("../templates/changelog.html"),
+            ),
         ])
         .unwrap();
         tera
@@ -98,6 +105,7 @@ async fn main() -> anyhow::Result<()> {
                 .route("/", get(render_summary_handler))
                 .route("/{page}", get(render_page_handler))
                 .route("/style.css", get(serve_css))
+                .route("/changelog", get(render_changelog_handler))
                 .nest_service(
                     "/images",
                     tower_http::services::ServeDir::new(&shared_state.docs_dir.join("images")),
@@ -139,6 +147,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::Entry { cmd } => {
             entry::handle(cmd, abs_path).await?;
         }
+        Commands::Changelog { cmd } => {
+            changelog::handle(cmd, abs_path).await?;
+        }
     }
     Ok(())
 }
@@ -148,7 +159,9 @@ async fn get_summary_data(docs_dir: &PathBuf, is_static: bool) -> Vec<Page> {
     if let Ok(mut entries) = tokio::fs::read_dir(docs_dir).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
             let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) != Some("toml") {
+            if path.extension().and_then(|s| s.to_str()) != Some("toml")
+                || path.file_name().and_then(|s| s.to_str()) == Some("_changelog.toml")
+            {
                 continue;
             }
 
@@ -184,6 +197,8 @@ async fn get_summary_data(docs_dir: &PathBuf, is_static: bool) -> Vec<Page> {
 async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> anyhow::Result<()> {
     tracing::info!("Building static site to: {}", out_dir.display());
 
+    let changelog_entries = changelog::load_changelog(&docs_dir).await;
+
     if !no_navigation {
         let pages = get_summary_data(&docs_dir, true).await;
         let static_pages: Vec<Page> = pages
@@ -194,14 +209,24 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
             })
             .collect();
 
+        // Render home page
         let mut context = Context::new();
         context.insert("title", "Wiki Index");
         context.insert("files", &static_pages);
+        context.insert("changelog", &changelog_entries);
         context.insert("is_static", &true);
-
         let rendered = TEMPLATES.render("home.html", &context)?;
         tokio::fs::write(out_dir.join("index.html"), rendered).await?;
     }
+
+    // Render changelog page
+    let mut context = Context::new();
+    context.insert("title", "Changelog");
+    context.insert("changelog", &changelog_entries);
+    context.insert("is_static", &true);
+    context.insert("no_navigation", &false);
+    let rendered = TEMPLATES.render("changelog.html", &context)?;
+    tokio::fs::write(out_dir.join("changelog.html"), &rendered).await?;
 
     let css = TEMPLATES.render("style.css", &Context::new())?;
     tokio::fs::write(out_dir.join("style.css"), css).await?;
@@ -209,7 +234,9 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
     let mut entries = tokio::fs::read_dir(&docs_dir).await?;
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) == Some("toml") {
+        if path.extension().and_then(|s| s.to_str()) == Some("toml")
+            && path.file_name().and_then(|s| s.to_str()) != Some("_changelog.toml")
+        {
             let filename = if let Some(file_name) = entry.file_name().to_str() {
                 file_name.to_string()
             } else {

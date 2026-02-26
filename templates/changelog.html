@@ -1,0 +1,44 @@
+{% extends "_base.html" %}
+{% block title %}{{ title }}{% endblock title %}
+{% block content %}
+    <div class="wiki-header">
+        <h1>{{ title }}</h1>
+    </div>
+
+    <div class="wiki-container">
+        <main class="wiki-body">
+            {% if changelog | length == 0 %}
+                <p>No changelog entries found.</p>
+            {% else %}
+                <ul class="changelog-list">
+                {% for entry in changelog %}
+                    <li class="changelog-entry">
+                        <div class="changelog-meta">
+                            {# Split date "2026-02-26 15:10:00" into parts #}
+                            {% set date_parts = entry.date | split(pat=" ") %}
+                            <span class="changelog-day">{{ date_parts[0] }}</span>
+                            <span class="changelog-time">{{ date_parts[1] }}</span>
+                            <span class="changelog-author">by {{ entry.author }}</span>
+                        </div>
+
+                        <div class="changelog-message">{{ entry.message }}</div>
+
+                        {% if entry.files %}
+                        <div class="changelog-files">
+                            <details>
+                                <summary>{{ entry.files | length }} file(s) changed</summary>
+                                <ul>
+                                    {% for file in entry.files %}
+                                    <li>{{ file }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </details>
+                        </div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        </main>
+    </div>
+{% endblock content %}
