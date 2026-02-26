@@ -4,7 +4,7 @@ use axum::{
     response::{Html, IntoResponse},
 };
 use pulldown_cmark::{
-    CodeBlockKind, CowStr, Event, Options, Parser as MarkdownParser, Tag, TagEnd, html,
+    CodeBlockKind, CowStr, Event, LinkType, Options, Parser as MarkdownParser, Tag, TagEnd, html,
 };
 use pulldown_cmark_escape::escape_html;
 use std::path::PathBuf;
@@ -18,11 +18,12 @@ use crate::{
 
 pub struct Renderer<'a> {
     inner: MarkdownParser<'a>,
+    is_static: bool,
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new(inner: MarkdownParser<'a>) -> Self {
-        Self { inner }
+    pub fn new(inner: MarkdownParser<'a>, is_static: bool) -> Self {
+        Self { inner, is_static }
     }
 }
 
@@ -32,35 +33,59 @@ impl<'a> Iterator for Renderer<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let event = self.inner.next()?;
 
-        // Intercept CodeBlock starts
-        let Event::Start(Tag::CodeBlock(kind)) = event else {
-            return Some(event);
-        };
+        match event {
+            Event::Start(Tag::Link {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) if !matches!(link_type, LinkType::Email) && self.is_static => {
+                let mut new_url = dest_url.to_string();
 
-        let mut code_content = String::new();
+                if !new_url.contains("://")
+                    && !new_url.starts_with("mailto:")
+                    && !new_url.starts_with('#')
+                    && !new_url.ends_with(".html")
+                {
+                    new_url.push_str(".html");
+                }
 
-        while let Some(inner_event) = self.inner.next() {
-            match inner_event {
-                Event::End(TagEnd::CodeBlock) => break,
-                Event::Text(code) => code_content.push_str(&code),
-                _ => {}
+                Some(Event::Start(Tag::Link {
+                    link_type,
+                    dest_url: CowStr::Boxed(new_url.into_boxed_str()),
+                    title,
+                    id,
+                }))
             }
+
+            Event::Start(Tag::CodeBlock(kind)) => {
+                let mut code_content = String::new();
+
+                while let Some(inner_event) = self.inner.next() {
+                    match inner_event {
+                        Event::End(TagEnd::CodeBlock) => break,
+                        Event::Text(code) => code_content.push_str(&code),
+                        _ => {}
+                    }
+                }
+
+                let lang = match kind {
+                    CodeBlockKind::Indented => "text",
+                    CodeBlockKind::Fenced(ref language) => language.as_ref(),
+                };
+
+                let rendered_html = render_code_to_html(&code_content, lang);
+
+                let mut escaped_code = String::new();
+                let _ = escape_html(&mut escaped_code, &code_content);
+
+                let rendered_html =
+                    rendered_html.replace("<pre", &format!("<pre data-code=\"{}\"", escaped_code));
+
+                Some(Event::Html(CowStr::Boxed(rendered_html.into_boxed_str())))
+            }
+            _ => return Some(event),
         }
-
-        let lang = match kind {
-            CodeBlockKind::Indented => "text",
-            CodeBlockKind::Fenced(ref language) => language.as_ref(),
-        };
-
-        let rendered_html = render_code_to_html(&code_content, lang);
-
-        let mut escaped_code = String::new();
-        let _ = escape_html(&mut escaped_code, &code_content);
-
-        let rendered_html =
-            rendered_html.replace("<pre", &format!("<pre data-code=\"{}\"", escaped_code));
-
-        Some(Event::Html(CowStr::Boxed(rendered_html.into_boxed_str())))
     }
 }
 
@@ -127,7 +152,7 @@ pub async fn render_wiki_page(
     );
 
     let parser = MarkdownParser::new_ext(&markdown_content, options);
-    let renderer = Renderer::new(parser);
+    let renderer = Renderer::new(parser, is_static);
     let mut html_output = String::new();
     html::push_html(&mut html_output, renderer);
 
