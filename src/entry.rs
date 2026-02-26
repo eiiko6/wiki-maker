@@ -23,7 +23,11 @@ async fn list_entries(root: &PathBuf) -> Result<()> {
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("toml") {
-            let name = path.file_stem().unwrap().to_string_lossy().to_string();
+            let name = if let Some(file_stem) = path.file_stem() {
+                file_stem.to_string_lossy().to_string()
+            } else {
+                continue;
+            };
 
             // Read configuration to check for linked files
             let content = fs::read_to_string(&path).await.unwrap_or_default();

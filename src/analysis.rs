@@ -25,11 +25,11 @@ impl WikiGraph {
                 let config: WikiConfig = toml::from_str(&content)
                     .with_context(|| format!("Failed to parse {:?}", path))?;
 
-                let slug = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap()
-                    .to_string();
+                let slug: String = if let Some(file_stem) = path.file_stem() {
+                    file_stem.to_string_lossy().into_owned()
+                } else {
+                    continue;
+                };
 
                 nodes.insert(slug.clone(), config.clone());
                 raw_files.insert(slug, config);

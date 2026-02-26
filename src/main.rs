@@ -182,7 +182,7 @@ async fn get_summary_data(docs_dir: &PathBuf, is_static: bool) -> Vec<Page> {
 }
 
 async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> anyhow::Result<()> {
-    tracing::info!("Building static site to: {:?}", out_dir);
+    tracing::info!("Building static site to: {}", out_dir.display());
 
     if !no_navigation {
         let pages = get_summary_data(&docs_dir, true).await;
@@ -209,10 +209,20 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
     let mut entries = tokio::fs::read_dir(&docs_dir).await?;
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
-        if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-            if ["png", "jpg", "jpeg", "gif", "webp"].contains(&ext) {
-                let dest = out_dir.join(path.file_name().unwrap());
-                tokio::fs::copy(path, dest).await?;
+        if path.extension().and_then(|s| s.to_str()) == Some("toml") {
+            let filename = if let Some(file_name) = entry.file_name().to_str() {
+                file_name.to_string()
+            } else {
+                continue;
+            };
+
+            match render_wiki_page(&filename, &docs_dir, no_navigation, true).await {
+                Ok(rendered) => {
+                    let out_file = out_dir.join(filename.replace(".toml", ".html"));
+                    tokio::fs::write(&out_file, rendered).await?;
+                    tracing::info!("Generated {}", out_file.display());
+                }
+                Err(e) => tracing::error!("Failed to generate {}: {}", filename, e),
             }
         }
     }
@@ -227,25 +237,12 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
             tracing::info!("Copied {}", entry.file_name().display(),);
             let path = entry.path();
             if path.is_file() {
-                let dest = out_images.join(path.file_name().unwrap());
+                let dest = out_images.join(if let Some(file_name) = path.file_name() {
+                    file_name
+                } else {
+                    continue;
+                });
                 tokio::fs::copy(path, dest).await?;
-            }
-        }
-    }
-
-    let mut entries = tokio::fs::read_dir(&docs_dir).await?;
-    while let Some(entry) = entries.next_entry().await? {
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) == Some("toml") {
-            let filename = entry.file_name().to_str().unwrap().to_string();
-
-            match render_wiki_page(&filename, &docs_dir, no_navigation, true).await {
-                Ok(rendered) => {
-                    let out_file = out_dir.join(filename.replace(".toml", ".html"));
-                    tokio::fs::write(out_file, rendered).await?;
-                    tracing::info!("Generated {}", filename);
-                }
-                Err(e) => tracing::error!("Failed to generate {}: {}", filename, e),
             }
         }
     }
