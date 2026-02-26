@@ -202,7 +202,7 @@ pub async fn render_summary_handler(State(state): State<Arc<AppState>>) -> impl 
     if state.no_navigation {
         return (StatusCode::NOT_FOUND, "Disabled").into_response();
     }
-    let pages = get_summary_data(&state.docs_dir).await;
+    let pages = get_summary_data(&state.docs_dir, false).await;
     let mut context = Context::new();
     context.insert("title", "Wiki Index");
     context.insert("files", &pages);

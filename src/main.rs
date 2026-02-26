@@ -143,7 +143,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn get_summary_data(docs_dir: &PathBuf) -> Vec<Page> {
+async fn get_summary_data(docs_dir: &PathBuf, is_static: bool) -> Vec<Page> {
     let mut pages = Vec::new();
     if let Ok(mut entries) = tokio::fs::read_dir(docs_dir).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
@@ -152,21 +152,26 @@ async fn get_summary_data(docs_dir: &PathBuf) -> Vec<Page> {
                 continue;
             }
 
-            let filename = entry.file_name();
-            let filename_str = filename.to_str().unwrap_or("");
+            let filename_str = if is_static {
+                entry.file_name().to_string_lossy().into_owned()
+            } else {
+                path.file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| entry.file_name().to_string_lossy().into_owned())
+            };
 
             let title = if let Ok(content) = tokio::fs::read_to_string(&path).await {
                 if let Ok(config) = toml::from_str::<WikiConfig>(&content) {
                     config.title
                 } else {
-                    filename_str.to_string()
+                    filename_str.clone()
                 }
             } else {
-                filename_str.to_string()
+                filename_str.clone()
             };
 
             pages.push(Page {
-                filename: filename_str.to_string(),
+                filename: filename_str,
                 title,
                 datetime: "".to_string(),
             });
@@ -180,7 +185,7 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
     tracing::info!("Building static site to: {:?}", out_dir);
 
     if !no_navigation {
-        let pages = get_summary_data(&docs_dir).await;
+        let pages = get_summary_data(&docs_dir, true).await;
         let static_pages: Vec<Page> = pages
             .into_iter()
             .map(|mut p| {
