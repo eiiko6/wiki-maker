@@ -20,7 +20,9 @@ impl WikiGraph {
         let mut entries = tokio::fs::read_dir(&docs_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("toml") {
+            if path.extension().and_then(|s| s.to_str()) == Some("toml")
+                && path.file_name().and_then(|s| s.to_str()) != Some("_changelog.toml")
+            {
                 let content = tokio::fs::read_to_string(&path).await?;
                 let config: WikiConfig = toml::from_str(&content)
                     .with_context(|| format!("Failed to parse {:?}", path))?;
