@@ -3,18 +3,33 @@
 {% block content %}
     <h1>{{ title }}</h1>
 
-    <ol>
-      {% for file in files %}
-      <li>
-        <a href="./{{ file.filename }}">{{ file.title }}</a> -
-        <span class="local-date" data-timestamp="{{ file.datetime }}">
-            {{ file.datetime }}
-        </span>
-      </li>
-      {% endfor %}
-    </ol>
+    <div class="entry-list">
+      {% set last_category = "___INIT___" %}
 
-    <hr />
+      {% for file in files %}
+        {% set current_cat = file.category | default(value="Uncategorized") %}
+
+        {# If file.category is None, we treat it as special top-level items #}
+        {% if not file.category %}
+             {# Just print the item, assuming sorted at top #}
+             <div class="entry-item">
+                <a href="./{{ file.filename }}">{{ file.title }}</a>
+                <span class="local-date" data-timestamp="{{ file.datetime }}">{{ file.datetime }}</span>
+             </div>
+        {% else %}
+            {# If it is a categorized item #}
+            {% if current_cat != last_category %}
+                <h3 class="category-header">{{ current_cat }}</h3>
+                {% set_global last_category = current_cat %}
+            {% endif %}
+
+            <div class="entry-item indent">
+                <a href="./{{ file.filename }}">{{ file.title }}</a>
+                <span class="local-date" data-timestamp="{{ file.datetime }}">{{ file.datetime }}</span>
+            </div>
+        {% endif %}
+      {% endfor %}
+    </div>
 
     <h2>Recent Changes</h2>
     {% if changelog | length > 0 %}

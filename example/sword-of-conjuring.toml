@@ -1,0 +1,9 @@
+title = "Sword of Conjuring"
+category = "Items"
+image = "azrak.png"
+content_file = "azrak.md"
+
+[infobox]
+"Weapon type" = "Sword"
+"Material" = "Steel"
+

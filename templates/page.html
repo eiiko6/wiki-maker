@@ -2,7 +2,12 @@
 {% block title %}{{ title }}{% endblock title %}
 {% block content %}
 <div class="wiki-header">
-    <h1>{{ title }}</h1>
+    <h1>
+        {{ title }}
+        {% if category %}
+        <span class="header-category">#{{ category }}</span>
+        {% endif %}
+    </h1>
 </div>
 
 <div class="wiki-container">

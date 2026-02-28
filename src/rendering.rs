@@ -13,8 +13,8 @@ use syntect::html::highlighted_html_for_string;
 use tera::Context;
 
 use crate::{
-    AppState, SYNTAX_SET, TEMPLATES, THEME_SET, WikiConfig, changelog, get_nav_links,
-    get_summary_data,
+    AppState, SYNTAX_SET, TEMPLATES, THEME_SET, WikiConfig, changelog,
+    fs::{get_nav_links, get_summary_data},
 };
 
 pub struct Renderer<'a> {
@@ -186,6 +186,7 @@ pub async fn render_wiki_page(
 
     let mut context = Context::new();
     context.insert("title", &config.title);
+    context.insert("category", &config.category);
     context.insert("content", &html_output);
     context.insert("infobox", &infobox_list);
     context.insert("main_image", &main_image_path);

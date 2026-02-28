@@ -3,3 +3,7 @@ Bernardo est un Papoute commun. Il est souvent considéré en tant qu'example de
 
 ## Répliques
 > ...
+
+## Belongings
+
+Some say Bernardo owns the [Sword of Conjuring](sword-of-conjuring).

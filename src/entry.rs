@@ -9,7 +9,7 @@ use crate::cli::EntryCommands;
 pub async fn handle(command: EntryCommands, root_dir: PathBuf) -> Result<()> {
     match command {
         EntryCommands::List => list_entries(&root_dir).await,
-        EntryCommands::New { name } => create_entry(&root_dir, &name).await,
+        EntryCommands::New { name, category } => create_entry(&root_dir, &name, category).await,
         EntryCommands::Remove { name } => remove_entry(&root_dir, &name).await,
         EntryCommands::Inspect { name } => inspect_entry(&root_dir, &name).await,
     }
@@ -73,7 +73,7 @@ fn check_file_status(root: &PathBuf, filename: Option<String>) -> String {
     }
 }
 
-async fn create_entry(root: &PathBuf, title: &str) -> Result<()> {
+async fn create_entry(root: &PathBuf, title: &str, category: Option<String>) -> Result<()> {
     let slug: String = title
         .trim()
         .to_lowercase()
@@ -102,7 +102,7 @@ async fn create_entry(root: &PathBuf, title: &str) -> Result<()> {
 
     // Minimal default content
     let toml_content = format!(
-        r#"title = "{}"
+        r#"title = "{}"{}
 image = "{}"
 content_file = "{}"
 
@@ -111,7 +111,14 @@ content_file = "{}"
 "Status" = "WIP"
 "Created" = "2026"
 "Category" = "General""#,
-        title, img_filename, md_filename
+        title,
+        if let Some(cat) = category {
+            format!("\ncategory = \"{cat}\"")
+        } else {
+            String::new()
+        },
+        img_filename,
+        md_filename
     );
 
     fs::write(&toml_path, toml_content)

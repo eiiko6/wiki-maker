@@ -60,6 +60,9 @@ pub enum EntryCommands {
     New {
         /// The title of the new entry (e.g. "The Great Bernardo")
         name: String,
+        /// Optional category/type for the entry
+        #[arg(short, long)]
+        category: Option<String>,
     },
     /// Remove an entry by its normalized name
     Remove {
