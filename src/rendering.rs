@@ -59,6 +59,29 @@ impl<'a> Iterator for Renderer<'a> {
                 }))
             }
 
+            Event::Start(Tag::Image {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) => {
+                let mut new_url = dest_url.to_string();
+
+                if !new_url.contains("://")
+                    && !new_url.starts_with('/')
+                    && !new_url.starts_with("./")
+                {
+                    new_url = format!("images/{}", new_url);
+                }
+
+                Some(Event::Start(Tag::Image {
+                    link_type,
+                    dest_url: CowStr::Boxed(new_url.into_boxed_str()),
+                    title,
+                    id,
+                }))
+            }
+
             Event::Start(Tag::CodeBlock(kind)) => {
                 let mut code_content = String::new();
 
@@ -75,14 +98,17 @@ impl<'a> Iterator for Renderer<'a> {
                     CodeBlockKind::Fenced(ref language) => language.as_ref(),
                 };
 
-                let rendered_html = render_code_to_html(&code_content, lang);
+                if lang == "rendered_html" {
+                    return Some(Event::Html(CowStr::Boxed(code_content.into_boxed_str())));
+                }
 
+                let rendered_html = render_code_to_html(&code_content, lang);
                 let mut escaped_code = String::new();
                 let _ = escape_html(&mut escaped_code, &code_content);
-
-                let rendered_html =
-                    rendered_html.replace("<pre", &format!("<pre data-code=\"{}\"", escaped_code));
-
+                let rendered_html = rendered_html.replace(
+                    "<pre",
+                    &format!("<pre data-lang=\"{}\" data-code=\"{}\"", lang, escaped_code),
+                );
                 Some(Event::Html(CowStr::Boxed(rendered_html.into_boxed_str())))
             }
             _ => return Some(event),

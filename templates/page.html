@@ -43,21 +43,34 @@
 
 <script>
 document.querySelectorAll('pre[data-code]').forEach((block) => {
+    const lang = block.getAttribute('data-lang') || 'text';
+    const code = block.getAttribute('data-code');
+
     const wrapper = document.createElement('div');
     wrapper.className = 'code-wrapper';
-    block.parentNode.insertBefore(wrapper, block);
-    wrapper.appendChild(block);
+
+    const header = document.createElement('div');
+    header.className = 'code-header';
+
+    const langLabel = document.createElement('span');
+    langLabel.className = 'code-lang';
+    langLabel.innerText = lang;
 
     const button = document.createElement('button');
     button.className = 'copy-button';
     button.type = 'button';
     button.innerHTML = '<i class="fa-regular fa-copy"></i>';
-    wrapper.appendChild(button);
+
+    header.appendChild(langLabel);
+    header.appendChild(button);
+
+    block.parentNode.insertBefore(wrapper, block);
+    wrapper.appendChild(header);
+    wrapper.appendChild(block);
 
     button.addEventListener('click', async () => {
-        const text = block.getAttribute('data-code');
         try {
-            await navigator.clipboard.writeText(text);
+            await navigator.clipboard.writeText(code);
             button.innerHTML = '<i class="fa-solid fa-check"></i>';
             button.classList.add('copied');
             setTimeout(() => {

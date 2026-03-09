@@ -1,7 +1,7 @@
 title = "Sword of Conjuring"
 category = "Items"
-image = "azrak.png"
-content_file = "azrak.md"
+image = "sword-of-conjuring.png"
+content_file = "sword-of-conjuring.md"
 
 [infobox]
 "Weapon type" = "Sword"

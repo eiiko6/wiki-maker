@@ -20,6 +20,9 @@ Her smallest creation:
 
 - [Bernardo](bernardo)
 
+Bernardo looks like this:
+![bernardo-picture](bernardo.png)
+
 ---
 
 ## Enemy
