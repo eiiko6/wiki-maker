@@ -14,9 +14,87 @@
     {% if not no_navigation %}
     <nav>
         <a href="{% if is_static %}index.html{% else %}.{% endif %}">Home</a>
+
+        <div class="search-container" style="position: relative; margin-left: auto; display: flex; align-items: center;">
+            <input type="text" id="wiki-search" placeholder="Search wiki..." autocomplete="off">
+            <div id="search-results">
+            </div>
+        </div>
     </nav>
     {% endif %}
 
     <div id="content">{% block content %}{% endblock content %}</div>
 </body>
+
+{% if is_static %}
+  <script src="search-index.js"></script>
+{% endif %}
+
+<script>
+async function getSearchIndex() {
+    if (window.WIKI_SEARCH_INDEX) {
+        console.log("Using pre-loaded search index");
+        return window.WIKI_SEARCH_INDEX;
+    }
+
+    try {
+        const response = await fetch('search-index.json');
+        if (!response.ok) throw new Error("Search index not found");
+        return await response.json();
+    } catch (e) {
+        console.error("Failed to load search index:", e);
+        return [];
+    }
+}
+
+(function() {
+    let searchIndex = null;
+    const searchInput = document.getElementById('wiki-search');
+    const resultsDiv = document.getElementById('search-results');
+
+    async function initSearch() {
+        if (searchIndex) return;
+        try {
+            searchIndex = await getSearchIndex();
+        } catch (e) {
+            console.error("Failed to load search index:", e);
+        }
+    }
+
+    searchInput.addEventListener('focus', initSearch);
+
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        if (!query || !searchIndex) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        const matches = searchIndex.filter(page => 
+            page.title.toLowerCase().includes(query) || 
+            (page.category && page.category.toLowerCase().includes(query))
+        ).slice(0, 10);
+
+        if (matches.length > 0) {
+            resultsDiv.innerHTML = matches.map(page => `
+                <a href="${page.url}" class="search-result">
+                    <div class="search-result-title">${page.title}</div>
+                    <div class="search-result-category">${page.category || 'General'}</div>
+                </a>
+            `).join('');
+            resultsDiv.style.display = 'block';
+        } else {
+            resultsDiv.innerHTML = '<div style="padding: 10px; color: #838ba7;">No results found</div>';
+            resultsDiv.style.display = 'block';
+        }
+    });
+
+    // Close results when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+            resultsDiv.style.display = 'none';
+        }
+    });
+})();
+</script>
 </html>

@@ -1,6 +1,24 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
-use crate::{Page, WikiConfig};
+use axum::{Json, extract::State, response::IntoResponse};
+
+use crate::{AppState, Page, WikiConfig};
+
+pub async fn get_search_index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let pages = get_summary_data(&state.docs_dir, false).await;
+    let search_data: Vec<serde_json::Value> = pages
+        .into_iter()
+        .map(|p| {
+            serde_json::json!({
+                "title": p.title,
+                "url": p.filename,
+                "category": p.category
+            })
+        })
+        .collect();
+
+    Json(search_data)
+}
 
 pub async fn get_summary_data(docs_dir: &PathBuf, is_static: bool) -> Vec<Page> {
     let mut pages = Vec::new();

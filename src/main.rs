@@ -20,7 +20,7 @@ mod rendering;
 
 use crate::{
     cli::{Cli, Commands},
-    fs::get_summary_data,
+    fs::{get_search_index, get_summary_data},
     rendering::{
         render_changelog_handler, render_page_handler, render_summary_handler, render_wiki_page,
     },
@@ -107,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
             });
             let app = Router::new()
                 .route("/", get(render_summary_handler))
+                .route("/search-index.json", get(get_search_index))
                 .route("/{page}", get(render_page_handler))
                 .route("/style.css", get(serve_css))
                 .route("/changelog", get(render_changelog_handler))
@@ -165,6 +166,22 @@ async fn run_build(docs_dir: PathBuf, out_dir: PathBuf, no_navigation: bool) -> 
 
     if !no_navigation {
         let pages = get_summary_data(&docs_dir, true).await;
+
+        let search_data: Vec<serde_json::Value> = pages
+            .iter()
+            .map(|p| {
+                serde_json::json!({
+                    "title": p.title,
+                    "url": p.filename.replace(".toml", ".html"),
+                    "category": p.category
+                })
+            })
+            .collect();
+
+        let json_index = serde_json::to_string(&search_data)?;
+        let js_content = format!("window.WIKI_SEARCH_INDEX = {};", json_index);
+        tokio::fs::write(out_dir.join("search-index.js"), js_content).await?;
+
         let static_pages: Vec<Page> = pages
             .into_iter()
             .map(|mut p| {

@@ -38,6 +38,56 @@ body {
   padding: 0 20px 35px;
 }
 
+#wiki-search {
+    background: #232634;
+    border: 1px solid #414559;
+    color: #c6d0f5;
+    padding: 5px 10px;
+    border-radius: 4px;
+    outline: none;
+}
+
+#wiki-search:focus {
+    border-color: #8caaee;
+}
+
+#search-results {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--container-bg);
+    border: 1px solid var(--border-color);
+    width: 300px;
+    z-index: 1000;
+    border-radius: 4px;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+#search-results a:hover {
+    background: var(--lighter-bg);
+}
+
+/* FIX: */
+/* #search-results a:hover .search-result-category { */
+/*     text-decoration: none; */
+/* } */
+
+.search-result {
+    display: block;
+    padding: 10px;
+    text-decoration: none;
+    color: var(--text-main);
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s;
+}
+
+.search-result-category {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
 .wiki-header {
   border-bottom: 2px solid;
   border-image-source: linear-gradient(to right, var(--accent), transparent);
