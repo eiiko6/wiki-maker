@@ -3,6 +3,22 @@ category = "Characters"
 image = "bernardo.png"
 content_file = "bernardo.md"
 
+css_override = """
+#content {
+    background: white;
+    color: black;
+    border-radius: var(--radius-md);
+}
+
+.wiki-header h1 {
+    color: var(--accent);
+}
+
+.wiki-sidebar {
+    background: white;
+}
+"""
+
 [infobox]
 "Espèce" = "Papoute Commun"
 Genre = "H"

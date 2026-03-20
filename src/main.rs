@@ -76,6 +76,7 @@ pub struct WikiConfig {
     pub image: Option<String>,
     pub infobox: Option<IndexMap<String, String>>,
     pub content_file: Option<String>,
+    pub css_override: Option<String>,
 }
 
 struct AppState {

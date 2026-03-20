@@ -10,6 +10,10 @@
     {% endblock head %}
 </head>
 
+{% if css_override %}
+    <style>{{ css_override | safe }}</style>
+{% endif %}
+
 <body {% if no_navigation %}style="padding-top: 40px;"{% endif %}>
     {% if not no_navigation %}
     <nav>

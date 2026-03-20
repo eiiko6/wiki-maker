@@ -220,6 +220,7 @@ pub async fn render_wiki_page(
     context.insert("next_page", &next);
     context.insert("no_navigation", &no_navigation);
     context.insert("is_static", &is_static);
+    context.insert("css_override", &config.css_override);
 
     TEMPLATES
         .render("page.html", &context)
