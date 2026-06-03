@@ -85,7 +85,7 @@ impl<'a> Iterator for Renderer<'a> {
             Event::Start(Tag::CodeBlock(kind)) => {
                 let mut code_content = String::new();
 
-                while let Some(inner_event) = self.inner.next() {
+                for inner_event in self.inner.by_ref() {
                     match inner_event {
                         Event::End(TagEnd::CodeBlock) => break,
                         Event::Text(code) => code_content.push_str(&code),
@@ -111,7 +111,7 @@ impl<'a> Iterator for Renderer<'a> {
                 );
                 Some(Event::Html(CowStr::Boxed(rendered_html.into_boxed_str())))
             }
-            _ => return Some(event),
+            _ => Some(event),
         }
     }
 }

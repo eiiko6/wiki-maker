@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use colored::Colorize;
+use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs;
 
@@ -59,7 +60,7 @@ async fn list_entries(root: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn check_file_status(root: &PathBuf, filename: Option<String>) -> String {
+fn check_file_status(root: &Path, filename: Option<String>) -> String {
     match filename {
         Some(f) => {
             let path = root.join("images").join(&f);
@@ -73,7 +74,7 @@ fn check_file_status(root: &PathBuf, filename: Option<String>) -> String {
     }
 }
 
-async fn create_entry(root: &PathBuf, title: &str, category: Option<String>) -> Result<()> {
+async fn create_entry(root: &Path, title: &str, category: Option<String>) -> Result<()> {
     let slug: String = title
         .trim()
         .to_lowercase()
@@ -139,7 +140,7 @@ content_file = "{}"
     Ok(())
 }
 
-async fn remove_entry(root: &PathBuf, name: &str) -> Result<()> {
+async fn remove_entry(root: &Path, name: &str) -> Result<()> {
     let toml_path = root.join(format!("{}.toml", name));
 
     if !toml_path.exists() {
@@ -176,7 +177,7 @@ async fn remove_entry(root: &PathBuf, name: &str) -> Result<()> {
     Ok(())
 }
 
-async fn inspect_entry(root: &PathBuf, name: &str) -> Result<()> {
+async fn inspect_entry(root: &Path, name: &str) -> Result<()> {
     let toml_path = root.join(format!("{}.toml", name));
     if !toml_path.exists() {
         return Err(anyhow!("Entry '{}' not found", name));

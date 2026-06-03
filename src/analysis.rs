@@ -78,7 +78,7 @@ impl WikiGraph {
             );
         }
 
-        println!("");
+        println!();
 
         // Edges
         for (source, targets) in &self.edges {

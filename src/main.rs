@@ -114,7 +114,7 @@ async fn main() -> anyhow::Result<()> {
                 .route("/changelog", get(render_changelog_handler))
                 .nest_service(
                     "/images",
-                    tower_http::services::ServeDir::new(&shared_state.docs_dir.join("images")),
+                    tower_http::services::ServeDir::new(shared_state.docs_dir.join("images")),
                 )
                 .nest_service(
                     "/assets",

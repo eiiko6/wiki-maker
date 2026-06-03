@@ -106,10 +106,11 @@ async fn update_from_git(changelog_path: &Path, git_dir: &Path, wiki_root: &Path
     for line in stdout.lines() {
         if line.starts_with("---ENTRY---|") {
             // Push previous
-            if let Some(entry) = current_entry.take() {
-                if !entry.files.is_empty() && !existing_hashes.contains(&entry.hash) {
-                    new_entries.push(entry);
-                }
+            if let Some(entry) = current_entry.take()
+                && !entry.files.is_empty()
+                && !existing_hashes.contains(&entry.hash)
+            {
+                new_entries.push(entry);
             }
 
             // Parse new
@@ -132,31 +133,32 @@ async fn update_from_git(changelog_path: &Path, git_dir: &Path, wiki_root: &Path
             let raw_path = line.trim();
 
             // Check if file belongs to the wiki directory
-            if prefix.is_empty() || raw_path.starts_with(&prefix) {
-                if let Some(entry) = current_entry.as_mut() {
-                    // Strip the prefix to get the relative path inside the wiki
-                    let clean_path = if prefix.is_empty() {
-                        raw_path.to_string()
-                    } else {
-                        raw_path
-                            .strip_prefix(&prefix)
-                            .unwrap_or(raw_path)
-                            .to_string()
-                    };
+            if (prefix.is_empty() || raw_path.starts_with(&prefix))
+                && let Some(entry) = current_entry.as_mut()
+            {
+                // Strip the prefix to get the relative path inside the wiki
+                let clean_path = if prefix.is_empty() {
+                    raw_path.to_string()
+                } else {
+                    raw_path
+                        .strip_prefix(&prefix)
+                        .unwrap_or(raw_path)
+                        .to_string()
+                };
 
-                    if clean_path != "changelog.toml" {
-                        entry.files.push(clean_path);
-                    }
+                if clean_path != "changelog.toml" {
+                    entry.files.push(clean_path);
                 }
             }
         }
     }
 
     // Push last
-    if let Some(entry) = current_entry {
-        if !entry.files.is_empty() && !existing_hashes.contains(&entry.hash) {
-            new_entries.push(entry);
-        }
+    if let Some(entry) = current_entry
+        && !entry.files.is_empty()
+        && !existing_hashes.contains(&entry.hash)
+    {
+        new_entries.push(entry);
     }
 
     if new_entries.is_empty() {
@@ -180,12 +182,11 @@ async fn update_from_git(changelog_path: &Path, git_dir: &Path, wiki_root: &Path
 
 pub async fn load_changelog(root_dir: &Path) -> Vec<ChangelogEntry> {
     let path = root_dir.join("_changelog.toml");
-    if path.exists() {
-        if let Ok(content) = fs::read_to_string(path).await {
-            if let Ok(config) = toml::from_str::<ChangelogConfig>(&content) {
-                return config.entries;
-            }
-        }
+    if path.exists()
+        && let Ok(content) = fs::read_to_string(path).await
+        && let Ok(config) = toml::from_str::<ChangelogConfig>(&content)
+    {
+        return config.entries;
     }
     Vec::new()
 }
